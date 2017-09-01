@@ -14,10 +14,7 @@ import (
 
 func main() {
 	conn, err := net.Dial("tcp", "192.168.1.250:5100")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	panicErr(err)
 	connbuf := bufio.NewReader(conn)
 
 	f, err := os.OpenFile("calls.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
