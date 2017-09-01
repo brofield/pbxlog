@@ -58,24 +58,6 @@ func openDumpFile() *os.File {
 	return dumpfile
 }
 
-func openCallsDatabase() (*sql.DB, *sql.Stmt) {
-	db, err := sql.Open("sqlite3", viper.GetString("calls-db"))
-	panicErr(err)
-
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS calls (" +
-		"callid INTEGER, extn INTEGER, auth TEXT, ts TEXT, durn TEXT, " +
-		"code TEXT, dialed TEXT, account TEXT, cost REAL, clid TEXT, " +
-		"clidname TEXT, gpno TEXT, ring TEXT);")
-	panicErr(err)
-
-	insert, err := db.Prepare("insert into CALLS(callid, extn, auth, ts, " +
-		"durn, code, dialed, account, cost, clid, clidname, gpno, ring) " +
-		"values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-	panicErr(err)
-
-	return db, insert
-}
-
 type CDR struct {
 	callid    int
 	extension int
@@ -90,6 +72,31 @@ type CDR struct {
 	clidname  string
 	gpno      string
 	ringtime  string
+}
+
+func openCallsDatabase() (*sql.DB, *sql.Stmt) {
+	db, err := sql.Open("sqlite3", viper.GetString("calls-db"))
+	panicErr(err)
+
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS calls (" +
+		"callid INTEGER, extension INTEGER, auth TEXT, calltime TEXT, duration TEXT, " +
+		"code TEXT, dialed TEXT, account TEXT, cost REAL, clid TEXT, " +
+		"clidname TEXT, gpno TEXT, ringtime TEXT);")
+	panicErr(err)
+
+	insert, err := db.Prepare("insert into CALLS(callid, extension, auth, calltime, " +
+		"duration, code, dialed, account, cost, clid, clidname, gpno, ringtime) " +
+		"values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	panicErr(err)
+
+	return db, insert
+}
+
+func insertCDR(dbi *sql.Stmt, cdr *CDR) {
+	_, err := dbi.Exec(cdr.callid, cdr.extension, cdr.auth,
+		cdr.calltime, cdr.duration, cdr.code, cdr.dialed, cdr.account,
+		cdr.cost, cdr.clid, cdr.clidname, cdr.gpno, cdr.ringtime)
+	panicErr(err)
 }
 
 func splitData(str string) *CDR {
@@ -132,9 +139,9 @@ func main() {
 		defer dumpfile.Close()
 	}
 
-	db, dbins := openCallsDatabase()
+	db, dbi := openCallsDatabase()
 	defer db.Close()
-	defer dbins.Close()
+	defer dbi.Close()
 
 	pabxConn := connectToPABX()
 	defer pabxConn.Close()
@@ -155,10 +162,7 @@ func main() {
 
 		// process this single call record
 		cdr := splitData(str)
-		_, err = dbins.Exec(cdr.callid, cdr.extension, cdr.auth,
-			cdr.calltime, cdr.duration, cdr.code, cdr.dialed, cdr.account,
-			cdr.cost, cdr.clid, cdr.clidname, cdr.gpno, cdr.ringtime)
-		panicErr(err)
+		insertCDR(dbi, cdr)
 	}
 }
 
