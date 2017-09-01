@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"database/sql"
 	"fmt"
+	_ "github.com/kardianos/service"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/spf13/viper"
 	"net"
 	"os"
 	"strconv"
@@ -12,24 +14,59 @@ import (
 	"time"
 )
 
+func loadConfig() {
+	viper.SetConfigName("pbxlog")
+	viper.SetConfigType("yaml")
+
+	viper.AddConfigPath("$HOME") 
+	viper.AddConfigPath("$HOME/.pbxlog")
+	viper.AddConfigPath(".")
+
+	viper.SetDefault("pabx", "")
+	viper.SetDefault("dump-file", "")
+	viper.SetDefault("calls-db", "")
+
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	}
+
+	fmt.Printf("Using pabx = %s\n", viper.GetString("pabx"))
+	fmt.Printf("Using dump-file = %s\n", viper.GetString("dump-file"))
+	fmt.Printf("Using calls-db = %s\n", viper.GetString("calls-db"))
+
+	if viper.GetString("pabx") == "" || viper.GetString("calls-db") == "" {
+		panic("pabx and calls-db configuration values required")
+	}
+}
+
 func main() {
-	conn, err := net.Dial("tcp", "192.168.1.250:5100")
+	loadConfig()
+
+	conn, err := net.Dial("tcp", viper.GetString("pabx"))
 	panicErr(err)
 	connbuf := bufio.NewReader(conn)
 
-	f, err := os.OpenFile("calls.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-	panicErr(err)
-	defer f.Close()
+	var dumpfile *os.File = nil
+	if viper.GetString("dump-file") != "" {
+		dumpfile, err = os.OpenFile(viper.GetString("dump-file"), 
+			os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+		panicErr(err)
+		defer dumpfile.Close()
+	}
 
-	db, err := sql.Open("sqlite3", "calls.sqlite3")
+	db, err := sql.Open("sqlite3", viper.GetString("calls-db"))
 	panicErr(err)
 	defer db.Close()
 
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS calls (callid INTEGER, extn INTEGER, auth TEXT, ts TEXT, durn TEXT, " +
-		"code TEXT, dialed TEXT, account TEXT, cost REAL, clid TEXT, clidname TEXT, gpno TEXT, ring TEXT);")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS calls (" +
+		"callid INTEGER, extn INTEGER, auth TEXT, ts TEXT, durn TEXT, " +
+		"code TEXT, dialed TEXT, account TEXT, cost REAL, clid TEXT, " +
+		"clidname TEXT, gpno TEXT, ring TEXT);")
 	panicErr(err)
 
-	insert, err := db.Prepare("insert into CALLS(callid, extn, auth, ts, durn, code, dialed, account, cost, clid, clidname, gpno, ring) " +
+	insert, err := db.Prepare("insert into CALLS(callid, extn, auth, ts, " +
+		"durn, code, dialed, account, cost, clid, clidname, gpno, ring) " +
 		"values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	panicErr(err)
 	defer insert.Close()
@@ -38,7 +75,9 @@ func main() {
 	for {
 		str, err := connbuf.ReadString('\000')
 		panicErr(err)
-		f.Write([]byte(str))
+		if dumpfile != nil {
+			dumpfile.Write([]byte(str))
+		}
 
 		// skip the report header
 		if str[0] == 0x0C {
