@@ -1,0 +1,6 @@
+pabx: 192.168.1.1:9999
+dump-file: /home/brofield/.pbxlog/dump.log
+error-file: /home/brofield/.pbxlog/error.log
+calls-db: /home/brofield/.pbxlog/calls.sqlite3
+
+

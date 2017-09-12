@@ -24,6 +24,7 @@ func loadConfig() {
 
 	viper.SetDefault("pabx", "")
 	viper.SetDefault("dump-file", "")
+	viper.SetDefault("error-file", "")
 	viper.SetDefault("calls-db", "")
 
 	err := viper.ReadInConfig()
@@ -33,6 +34,7 @@ func loadConfig() {
 
 	fmt.Printf("Using pabx = %s\n", viper.GetString("pabx"))
 	fmt.Printf("Using dump-file = %s\n", viper.GetString("dump-file"))
+	fmt.Printf("Using error-file = %s\n", viper.GetString("error-file"))
 	fmt.Printf("Using calls-db = %s\n", viper.GetString("calls-db"))
 
 	if viper.GetString("pabx") == "" || viper.GetString("calls-db") == "" {
@@ -46,12 +48,13 @@ func connectToPABX() net.Conn {
 	return conn
 }
 
-func openDumpFile() *os.File {
-	if viper.GetString("dump-file") == "" {
+func openDumpFile(configItem string) *os.File {
+	filename := viper.GetString(configItem)
+	if filename == "" {
 		return nil
 	}
 
-	dumpfile, err := os.OpenFile(viper.GetString("dump-file"),
+	dumpfile, err := os.OpenFile(filename,
 		os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	panicErr(err)
 
@@ -101,6 +104,9 @@ func insertCDR(dbi *sql.Stmt, cdr *CDR) {
 
 func splitData(str string) *CDR {
 	t := time.Now()
+	if len(str) != 154 {
+		return nil
+	}
 
 	var cdr CDR
 	cdr.callid, _ = strconv.Atoi(strings.TrimSpace(str[2:8]))
@@ -125,6 +131,7 @@ func skipHeader(line string) string {
 	if line[0] == 0x0C {
 		n := strings.LastIndex(line, tag)
 		if n >= 0 {
+			fmt.Print(" HDR ")
 			return line[n+len(tag)+2:]
 		}
 	}
@@ -134,7 +141,7 @@ func skipHeader(line string) string {
 func main() {
 	loadConfig()
 
-	dumpfile := openDumpFile()
+	dumpfile := openDumpFile("dump-file")
 	if dumpfile != nil {
 		defer dumpfile.Close()
 	}
@@ -153,6 +160,7 @@ func main() {
 		panicErr(err)
 		if dumpfile != nil {
 			dumpfile.Write([]byte(str))
+			dumpfile.Sync()
 		}
 		fmt.Print(".")
 
@@ -162,7 +170,22 @@ func main() {
 
 		// process this single call record
 		cdr := splitData(str)
-		insertCDR(dbi, cdr)
+		if cdr == nil {
+			dumpError(str)
+		} else {
+			insertCDR(dbi, cdr)
+		}
+	}
+}
+
+func dumpError(str string) {
+	fmt.Print(" INVALID ")
+	errorfile := openDumpFile("error-file")
+	if errorfile != nil {
+		defer errorfile.Close()
+		msg := fmt.Sprintf("\nError: len = %d\n--\n%s\n--\n", len(str), str)
+		errorfile.Write([]byte(msg))
+		errorfile.Sync()
 	}
 }
 
