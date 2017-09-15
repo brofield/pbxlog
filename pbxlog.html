@@ -1,0 +1,48 @@
+<html>
+<head>
+<title>pbxlog</title>
+<style>
+table { border: 1px black solid; border-collapse: collapse; width: 100%; }
+th { border: 1px black solid; }
+td { text-align: left; }
+tr.group0 { background: rgb(200,200,255); }
+</style>
+</head>
+<body>
+<h1>pbxlog</h1>
+<table>
+<tr>
+<th>callid</th>
+<th>extension</th>
+<th>auth</th>
+<th>calltime</th>
+<th>duration</th>
+<th>code</th>
+<th>dialed</th>
+<th>account</th>
+<th>cost</th>
+<th>clid</th>
+<th>clidname</th>
+<th>gpno</th>
+<th>ringtime</th>
+</tr>
+{{range .}}
+<tr class="group{{.Group}}">
+<td>{{ .Callid }}</td>
+<td>{{ .Extension }}</td>
+<td>{{ .Auth }}</td>
+<td>{{ .Calltime }}</td>
+<td>{{ .Duration }}</td>
+<td>{{ .Code }}</td>
+<td>{{ .Dialed }}</td>
+<td>{{ .Account }}</td>
+<td>{{ .Cost }}</td>
+<td>{{ .Clid }}</td>
+<td>{{ .Clidname }}</td>
+<td>{{ .Gpno }}</td>
+<td>{{ .Ringtime }}</td>
+</tr>
+{{end}}
+</table>
+</body>
+</html>
