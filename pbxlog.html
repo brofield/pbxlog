@@ -14,7 +14,9 @@ tr.group0 { background: rgb(200,200,255); }
 <tr>
 <th>callid</th>
 <th>extension</th>
+<th>extname</th>
 <th>auth</th>
+<th>authname</th>
 <th>calltime</th>
 <th>duration</th>
 <th>code</th>
@@ -30,7 +32,9 @@ tr.group0 { background: rgb(200,200,255); }
 <tr class="group{{.Group}}">
 <td>{{ .Callid }}</td>
 <td>{{ .Extension }}</td>
+<td>{{ .ExtName }}</td>
 <td>{{ .Auth }}</td>
+<td>{{ .AuthName }}</td>
 <td>{{ .Calltime }}</td>
 <td>{{ .Duration }}</td>
 <td>{{ .Code }}</td>

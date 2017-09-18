@@ -83,7 +83,9 @@ func openDumpFile(configItem string) *os.File {
 type CDR struct {
 	Callid    int
 	Extension int
+	ExtName   string
 	Auth      string
+	AuthName  string
 	Calltime  string
 	Duration  string
 	Code      string
@@ -109,9 +111,12 @@ func openCallsDatabase() *DbContext {
 		"clidname TEXT, gpno TEXT, ringtime TEXT);")
 	panicErr(err)
 
-	ctx.Insert, err = ctx.Db.Prepare("insert into CALLS(callid, extension, auth, calltime, " +
+	_, err = ctx.Db.Exec("CREATE TABLE IF NOT EXISTS extensions (num INTEGER, name TEXT);")
+	panicErr(err)
+
+	ctx.Insert, err = ctx.Db.Prepare("INSERT INTO calls(callid, extension, auth, calltime, " +
 		"duration, code, dialed, account, cost, clid, clidname, gpno, ringtime) " +
-		"values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+		"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	panicErr(err)
 
 	return ctx
@@ -125,10 +130,11 @@ func insertCDR(ctx *DbContext, cdr *CDR) {
 }
 
 func splitData(str string) *CDR {
-	t := time.Now()
-	if len(str) != 154 {
+	n := len(str)
+	if n != 154 && n != 122 {
 		return nil
 	}
+	t := time.Now()
 
 	var cdr CDR
 	cdr.Callid, _ = strconv.Atoi(strings.TrimSpace(str[2:8]))
@@ -141,9 +147,15 @@ func splitData(str string) *CDR {
 	cdr.Account = strings.TrimSpace(str[72:89])
 	cdr.Cost = strings.TrimSpace(str[90:100])
 	cdr.Clid = strings.TrimSpace(str[101:117])
-	cdr.Clidname = strings.TrimSpace(str[118:136])
-	cdr.Gpno = strings.TrimSpace(str[137:143])
-	cdr.Ringtime = strings.TrimSpace(str[143:151])
+	if n == 154 {
+		cdr.Clidname = strings.TrimSpace(str[118:136])
+		cdr.Gpno = strings.TrimSpace(str[137:143])
+		cdr.Ringtime = strings.TrimSpace(str[143:151])
+	} else {
+		cdr.Clidname = ""
+		cdr.Gpno = ""
+		cdr.Ringtime = ""
+	}
 
 	return &cdr
 }
@@ -267,10 +279,15 @@ func handler(ctx *DbContext, w http.ResponseWriter, r *http.Request) {
 		offset = 0
 	}
 
-	rows, err := ctx.Db.Query(
-		"SELECT callid, extension, auth, calltime, "+
-			"duration, code, dialed, account, cost, clid, clidname, gpno, ringtime "+
-			"FROM calls ORDER BY callid DESC, calltime DESC LIMIT ? OFFSET ?;",
+	rows, err := ctx.Db.Query(""+
+		"SELECT callid, extension, COALESCE(x.name, '') AS extname, "+
+		"auth, COALESCE(a.name, '') AS authname, calltime, duration, "+
+		"code, dialed, account, cost, clid, clidname, "+
+		"gpno, ringtime "+
+		"FROM calls c "+
+		"LEFT JOIN extensions x ON c.extension = x.num "+
+		"LEFT JOIN extensions a ON c.auth = a.num "+
+		"ORDER BY callid DESC, calltime DESC LIMIT ? OFFSET ?;",
 		limit, offset)
 	if err != nil {
 		fmt.Fprintf(w, "Query = %v", err)
@@ -282,8 +299,8 @@ func handler(ctx *DbContext, w http.ResponseWriter, r *http.Request) {
 	var cdr Row
 	var lastCallid int
 	for rows.Next() {
-		err = rows.Scan(&cdr.Callid, &cdr.Extension, &cdr.Auth, &cdr.Calltime,
-			&cdr.Duration, &cdr.Code, &cdr.Dialed, &cdr.Account, &cdr.Cost,
+		err = rows.Scan(&cdr.Callid, &cdr.Extension, &cdr.ExtName, &cdr.Auth, &cdr.AuthName,
+			&cdr.Calltime, &cdr.Duration, &cdr.Code, &cdr.Dialed, &cdr.Account, &cdr.Cost,
 			&cdr.Clid, &cdr.Clidname, &cdr.Gpno, &cdr.Ringtime)
 		if lastCallid != cdr.Callid {
 			lastCallid = cdr.Callid
