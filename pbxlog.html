@@ -5,7 +5,11 @@
 table { border: 1px black solid; border-collapse: collapse; width: 100%; }
 th { border: 1px black solid; }
 td { text-align: left; }
-tr.group0 { background: rgb(200,200,255); }
+tr.group1 { background: #00a9a5; }
+tr.group2 { background: #a6808c; }
+tr.group3 { background: #86a08b; }
+tr.group4 { background: #a7bbec; }
+tr.group5 { background: #d5bbb1; }
 </style>
 </head>
 <body>
@@ -28,7 +32,7 @@ tr.group0 { background: rgb(200,200,255); }
 <th>gpno</th>
 <th>ringtime</th>
 </tr>
-{{range .}}
+{{range .List}}
 <tr class="group{{.Group}}">
 <td>{{ .Callid }}</td>
 <td>{{ .Extension }}</td>
@@ -48,5 +52,6 @@ tr.group0 { background: rgb(200,200,255); }
 </tr>
 {{end}}
 </table>
+Page: <a href="?page=1">First</a> <a href="?page={{.Prev}}">Prev</a> <a href="?page={{.Next}}">Next</a>
 </body>
 </html>

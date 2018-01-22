@@ -253,6 +253,11 @@ type Row struct {
 	CDR
 	Group int
 }
+type Page struct {
+	List []Row
+	Prev int
+	Next int
+}
 
 func handler(ctx *DbContext, w http.ResponseWriter, r *http.Request) {
 	folder, err := osext.ExecutableFolder()
@@ -279,6 +284,14 @@ func handler(ctx *DbContext, w http.ResponseWriter, r *http.Request) {
 		offset = 0
 	}
 
+	page, err := strconv.Atoi(r.FormValue("page"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	if page > 1 {
+		offset = page * limit
+	}
+
 	rows, err := ctx.Db.Query(""+
 		"SELECT callid, extension, COALESCE(x.name, '') AS extname, "+
 		"auth, COALESCE(a.name, '') AS authname, calltime, duration, "+
@@ -287,7 +300,8 @@ func handler(ctx *DbContext, w http.ResponseWriter, r *http.Request) {
 		"FROM calls c "+
 		"LEFT JOIN extensions x ON c.extension = x.num "+
 		"LEFT JOIN extensions a ON c.auth = a.num "+
-		"ORDER BY callid DESC, calltime DESC LIMIT ? OFFSET ?;",
+		"ORDER BY calltime DESC, callid DESC "+
+		"LIMIT ? OFFSET ?;",
 		limit, offset)
 	if err != nil {
 		fmt.Fprintf(w, "Query = %v", err)
@@ -295,28 +309,40 @@ func handler(ctx *DbContext, w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var lst []Row
+	var p Page
 	var cdr Row
-	var lastCallid int
+	var grp map[int]int
+	var next int
+	var ok bool
+
+	grp = make(map[int]int)
 	for rows.Next() {
 		err = rows.Scan(&cdr.Callid, &cdr.Extension, &cdr.ExtName, &cdr.Auth, &cdr.AuthName,
 			&cdr.Calltime, &cdr.Duration, &cdr.Code, &cdr.Dialed, &cdr.Account, &cdr.Cost,
 			&cdr.Clid, &cdr.Clidname, &cdr.Gpno, &cdr.Ringtime)
-		if lastCallid != cdr.Callid {
-			lastCallid = cdr.Callid
-			cdr.Group = (cdr.Group + 1) % 2
+		cdr.Group, ok = grp[cdr.Callid]
+		if !ok {
+			next = (next % 5) + 1
+			cdr.Group = next
+			grp[cdr.Callid] = cdr.Group
 		}
 		if err != nil {
 			fmt.Fprintf(w, "rows.Scan() = %v", err)
 		}
-		lst = append(lst, cdr)
+		p.List = append(p.List, cdr)
 	}
 	err = rows.Err()
 	if err != nil {
 		fmt.Fprintf(w, "rows.Err() = %v", err)
 	}
 
-	err = t.Execute(w, lst)
+        p.Prev = page - 1
+        if p.Prev < 1 {
+ 		p.Prev = 1
+	}
+	p.Next = page + 1
+
+	err = t.Execute(w, p)
 	if err != nil {
 		fmt.Fprintf(w, "%v", err)
 		return
