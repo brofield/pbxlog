@@ -173,6 +173,10 @@ func skipHeader(line string) string {
 }
 
 func main() {
+	if time.Now().Year() < 2018 {
+		panic("System date incorrect")
+	}
+
 	loadConfig()
 
 	pabxConn := connectToPABX()
