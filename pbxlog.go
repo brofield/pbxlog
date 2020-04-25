@@ -278,22 +278,14 @@ func handler(ctx *DbContext, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit, err := strconv.Atoi(r.FormValue("limit"))
-	if err != nil || limit < 1 {
-		limit = 200
-	}
-
-	offset, err := strconv.Atoi(r.FormValue("offset"))
-	if err != nil || offset < 0 {
-		offset = 0
+	count, err := strconv.Atoi(r.FormValue("count"))
+	if err != nil || count < 1 {
+		count = 200
 	}
 
 	page, err := strconv.Atoi(r.FormValue("page"))
 	if err != nil || page < 1 {
 		page = 1
-	}
-	if page > 1 {
-		offset = page * limit
 	}
 
 	rows, err := ctx.Db.Query(""+
@@ -304,9 +296,7 @@ func handler(ctx *DbContext, w http.ResponseWriter, r *http.Request) {
 		"FROM calls c "+
 		"LEFT JOIN extensions x ON c.extension = x.num "+
 		"LEFT JOIN extensions a ON c.auth = a.num "+
-		"ORDER BY calltime DESC, callid DESC "+
-		"LIMIT ? OFFSET ?;",
-		limit, offset)
+		"ORDER BY calltime DESC, callid DESC ")
 	if err != nil {
 		fmt.Fprintf(w, "Query = %v", err)
 		return
@@ -319,8 +309,17 @@ func handler(ctx *DbContext, w http.ResponseWriter, r *http.Request) {
 	var next int
 	var ok bool
 
+	skip := (page - 1) * count;
+	for i := 0; i < skip; i++ {
+		rows.Next()
+	}
+
 	grp = make(map[int]int)
-	for rows.Next() {
+	for i := 0; i < count; i++ {
+		if !rows.Next() {
+			break
+		}
+
 		err = rows.Scan(&cdr.Callid, &cdr.Extension, &cdr.ExtName, &cdr.Auth, &cdr.AuthName,
 			&cdr.Calltime, &cdr.Duration, &cdr.Code, &cdr.Dialed, &cdr.Account, &cdr.Cost,
 			&cdr.Clid, &cdr.Clidname, &cdr.Gpno, &cdr.Ringtime)

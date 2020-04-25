@@ -1,4 +1,4 @@
-pabx: 192.168.1.1:9999
+pabx: 192.168.1.250:5100
 webui: :12000
 dump-file: /home/brofield/.pbxlog/dump.log
 error-file: /home/brofield/.pbxlog/error.log
