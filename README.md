@@ -8,8 +8,10 @@ Configuration:
 * Everthing else is optional. 
 * If webui IP/port is supplied then the webserver will be started.
 
+
 Screenshot showing database dump:
 ![PABX database records](screenshot-db.png)
+
 
 Screenshot showing optional webserver output:
 ![PABX log records](screenshot-web.png)
