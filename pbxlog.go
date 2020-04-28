@@ -289,14 +289,14 @@ func handler(ctx *DbContext, w http.ResponseWriter, r *http.Request) {
 	}
 
 	/* not using limit/offset for pagination, see below */
-	rows, err := ctx.Db.Query(""+
-		"SELECT callid, extension, COALESCE(x.name, '') AS extname, "+
-		"auth, COALESCE(a.name, '') AS authname, calltime, duration, "+
-		"code, dialed, account, cost, clid, clidname, "+
-		"gpno, ringtime "+
-		"FROM calls c "+
-		"LEFT JOIN extensions x ON c.extension = x.num "+
-		"LEFT JOIN extensions a ON c.auth = a.num "+
+	rows, err := ctx.Db.Query("" +
+		"SELECT callid, extension, COALESCE(x.name, '') AS extname, " +
+		"auth, COALESCE(a.name, '') AS authname, calltime, duration, " +
+		"code, dialed, account, cost, clid, clidname, " +
+		"gpno, ringtime " +
+		"FROM calls c " +
+		"LEFT JOIN extensions x ON c.extension = x.num " +
+		"LEFT JOIN extensions a ON c.auth = a.num " +
 		"ORDER BY calltime DESC, callid DESC ")
 	if err != nil {
 		fmt.Fprintf(w, "Query = %v", err)
@@ -312,9 +312,9 @@ func handler(ctx *DbContext, w http.ResponseWriter, r *http.Request) {
 
 	/* handle pagination manually as sqlite3 limit/offset seems to skip
 	   records for some reason. Since most people will not be looking too
-	   far back in the database manually, although inefficient, this is 
+	   far back in the database manually, although inefficient, this is
 	   plenty fast enough */
-	skip := (page - 1) * count;
+	skip := (page - 1) * count
 	for i := 0; i < skip; i++ {
 		rows.Next()
 	}
@@ -344,9 +344,9 @@ func handler(ctx *DbContext, w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "rows.Err() = %v", err)
 	}
 
-        p.Prev = page - 1
-        if p.Prev < 1 {
- 		p.Prev = 1
+	p.Prev = page - 1
+	if p.Prev < 1 {
+		p.Prev = 1
 	}
 	p.Next = page + 1
 
