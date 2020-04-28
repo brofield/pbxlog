@@ -288,6 +288,7 @@ func handler(ctx *DbContext, w http.ResponseWriter, r *http.Request) {
 		page = 1
 	}
 
+	/* not using limit/offset for pagination, see below */
 	rows, err := ctx.Db.Query(""+
 		"SELECT callid, extension, COALESCE(x.name, '') AS extname, "+
 		"auth, COALESCE(a.name, '') AS authname, calltime, duration, "+
@@ -309,6 +310,10 @@ func handler(ctx *DbContext, w http.ResponseWriter, r *http.Request) {
 	var next int
 	var ok bool
 
+	/* handle pagination manually as sqlite3 limit/offset seems to skip
+	   records for some reason. Since most people will not be looking too
+	   far back in the database manually, although inefficient, this is 
+	   plenty fast enough */
 	skip := (page - 1) * count;
 	for i := 0; i < skip; i++ {
 		rows.Next()
